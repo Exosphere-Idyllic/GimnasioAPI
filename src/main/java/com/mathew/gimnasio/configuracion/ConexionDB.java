@@ -7,15 +7,18 @@ import java.sql.SQLException;
 /**
  * Conexión a la base de datos.
  * Credenciales desde variables de entorno: DB_URL, DB_USER, DB_PASS.
- * No hardcodear en código; usar .env en local (no commitear) o config en el servidor.
+ * No hardcodear en código; usar .env en local (no commitear) o config en el
+ * servidor.
  *
- * SSL: Si la URL no contiene parámetro "ssl", se añade sslmode=require automáticamente.
+ * SSL: Si la URL no contiene parámetro "ssl", se añade sslmode=require
+ * automáticamente.
  * Esto es obligatorio en proveedores cloud (Render, Neon, Supabase).
- * Para desarrollo local sin SSL, añade "?sslmode=disable" explícitamente en DB_URL.
+ * Para desarrollo local sin SSL, añade "?sslmode=disable" explícitamente en
+ * DB_URL.
  */
 public class ConexionDB {
 
-    private static final String URL  = buildUrl(ConfiguracionEnv.get("DB_URL",  ""));
+    private static final String URL = buildUrl(ConfiguracionEnv.get("DB_URL", ""));
     private static final String USER = ConfiguracionEnv.get("DB_USER", "");
     private static final String PASS = ConfiguracionEnv.get("DB_PASS", "");
 
@@ -24,22 +27,23 @@ public class ConexionDB {
      * De lo contrario añade sslmode=require para que funcione en producción.
      */
     private static String buildUrl(String url) {
-        if (url == null || url.isBlank()) return url;
-        if (url.contains("ssl")) return url;                  // ya tiene sslmode=... o ssl=true
+        if (url == null || url.isBlank())
+            return url;
+        if (url.contains("ssl"))
+            return url; // ya tiene sslmode=... o ssl=true
         return url + (url.contains("?") ? "&" : "?") + "sslmode=require";
     }
 
-    public static Connection getConnection() {
+    public static Connection getConnection() throws SQLException {
+        if (URL == null || URL.isBlank() || USER.isBlank()) {
+            throw new SQLException("Variables de entorno no configuradas (DB_URL, DB_USER).");
+        }
         try {
-            if (URL == null || URL.isBlank() || USER.isBlank()) {
-                System.err.println("Configura DB_URL, DB_USER y DB_PASS (variables de entorno).");
-                return null;
-            }
             Class.forName("org.postgresql.Driver");
             return DriverManager.getConnection(URL, USER, PASS);
         } catch (ClassNotFoundException | SQLException e) {
             System.err.println("Error de conexión: " + e.getMessage());
-            return null;
+            throw new SQLException("Fallo al conectar a la base de datos", e);
         }
     }
 }
