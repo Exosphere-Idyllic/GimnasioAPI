@@ -21,8 +21,10 @@ import java.time.format.DateTimeParseException;
 /**
  * CONTROLADOR DE AUTENTICACIÓN
  * Esta clase es el "guardia de seguridad" principal del gimnasio.
- * Recibe a los usuarios nuevos, valida meticulosamente que sus datos sean reales
- * (como la cédula ecuatoriana y su edad), y coordina el envío del correo de verificación.
+ * Recibe a los usuarios nuevos, valida meticulosamente que sus datos sean
+ * reales
+ * (como la cédula ecuatoriana y su edad), y coordina el envío del correo de
+ * verificación.
  */
 @Path("/auth")
 public class AuthController {
@@ -40,8 +42,10 @@ public class AuthController {
      * REGISTRO DE NUEVO CLIENTE
      * Recibe los datos del formulario frontend y los pasa por múltiples filtros
      * antes de intentar guardarlos en la base de datos.
+     * 
      * @param u Objeto Usuario con la información ingresada en el registro.
-     * @return Una respuesta HTTP (200 si es exitoso, 400 o 409 si hay errores en los datos).
+     * @return Una respuesta HTTP (200 si es exitoso, 400 o 409 si hay errores en
+     *         los datos).
      */
     @POST
     @Path("/registro")
@@ -50,24 +54,28 @@ public class AuthController {
     public Response registrarUsuario(Usuario u) {
 
         // ==========================================
-        //  TUS VALIDACIONES (NO SE TOCAN)
+        // TUS VALIDACIONES (NO SE TOCAN)
         // ==========================================
 
         // 1. Validar Nombre y Apellido: Solo letras y mínimo 3 caracteres
-        if (u.getNombre() == null || u.getNombre().trim().length() < 3 || !Pattern.matches("^[a-zA-ZáéíóúÁÉÍÓÚñÑ ]+$", u.getNombre())) {
+        if (u.getNombre() == null || u.getNombre().trim().length() < 3
+                || !Pattern.matches("^[a-zA-ZáéíóúÁÉÍÓÚñÑ ]+$", u.getNombre())) {
             return error("El nombre debe tener al menos 3 letras y no contener números.");
         }
-        if (u.getApellido() == null || u.getApellido().trim().length() < 3 || !Pattern.matches("^[a-zA-ZáéíóúÁÉÍÓÚñÑ ]+$", u.getApellido())) {
+        if (u.getApellido() == null || u.getApellido().trim().length() < 3
+                || !Pattern.matches("^[a-zA-ZáéíóúÁÉÍÓÚñÑ ]+$", u.getApellido())) {
             return error("El apellido debe tener al menos 3 letras y no contener números.");
         }
 
-        // 2. Validar Cédula Ecuatoriana (Usando el algoritmo Módulo 10 al final del archivo)
+        // 2. Validar Cédula Ecuatoriana (Usando el algoritmo Módulo 10 al final del
+        // archivo)
         if (!esCedulaValida(u.getCedula())) {
             return error("La cédula ingresada no es válida o no corresponde a Ecuador.");
         }
 
         // 3. Validar Teléfono (al menos 9 dígitos)
-        // Nota: En Ecuador los celulares tienen 10 (ej: 099...) y fijos 9 (ej: 022...). Aceptamos desde 9.
+        // Nota: En Ecuador los celulares tienen 10 (ej: 099...) y fijos 9 (ej: 022...).
+        // Aceptamos desde 9.
         if (u.getTelefono() == null || !u.getTelefono().matches("\\d{9,}")) {
             return error("El teléfono debe tener por lo menos 9 dígitos numéricos.");
         }
@@ -83,7 +91,8 @@ public class AuthController {
         }
 
         // 4. VALIDACIÓN ESTRICTA DE FECHA (EDAD)
-        // Nos aseguramos de que el cliente tenga al menos 12 años y no ponga fechas irreales.
+        // Nos aseguramos de que el cliente tenga al menos 12 años y no ponga fechas
+        // irreales.
         if (u.getFechaNacimiento() == null || u.getFechaNacimiento().isEmpty()) {
             return error("La fecha de nacimiento es obligatoria.");
         }
@@ -113,13 +122,13 @@ public class AuthController {
             return error("El nombre de usuario NO puede tener espacios.");
         }
 
-
         // ==========================================
-        //  AQUÍ ESTÁ EL CAMBIO CLAVE (TRANSACCIÓN)
+        // AQUÍ ESTÁ EL CAMBIO CLAVE (TRANSACCIÓN)
         // ==========================================
 
         // Asignamos el rol 4 (Cliente) por defecto si no viene ninguno especificado
-        if (u.getIdRol() == 0) u.setIdRol(4);
+        if (u.getIdRol() == 0)
+            u.setIdRol(4);
 
         // PASO A: Generamos el código AQUÍ (antes de llamar a la base de datos)
         // Será un código de 6 números aleatorios para validar el correo
@@ -130,15 +139,21 @@ public class AuthController {
         boolean registrado = dao.registrarNuevoUsuario(u, codigoGenerado);
 
         if (registrado) {
-            // PASO C: Si la BD dijo "OK", enviamos el correo usando nuestro servicio
-            new EmailService().enviarCodigo(u.getEmail(), codigoGenerado);
+            // PASO C: Ejecutamos el envío de correo en un hilo separado (Asincrono)
+            // Así evitamos que si Gmail se demora o rechaza la contraseña, la API se quede
+            // colgada
+            // y el frontend sufra de un error de Timeout.
+            new Thread(() -> {
+                new EmailService().enviarCodigo(u.getEmail(), codigoGenerado);
+            }).start();
 
             return Response.ok("{"
                     + "\"mensaje\": \"Registro exitoso. Revise su correo.\","
                     + "\"idUsuario\": " + u.getIdUsuario()
                     + "}").build();
         } else {
-            // Si retorna false, usualmente es porque violó alguna restricción UNIQUE (como email o cédula repetida)
+            // Si retorna false, usualmente es porque violó alguna restricción UNIQUE (como
+            // email o cédula repetida)
             return Response.status(409).entity("{\"mensaje\": \"El usuario o correo ya existen.\"}").build();
         }
     }
@@ -147,7 +162,9 @@ public class AuthController {
 
     /**
      * VERIFICACIÓN DE CUENTA POR CÓDIGO
-     * Compara el código que el usuario ingresó en la web con el que enviamos a su correo.
+     * Compara el código que el usuario ingresó en la web con el que enviamos a su
+     * correo.
+     * 
      * @param request Objeto que contiene el email y el código tipeado.
      */
     @POST
@@ -155,7 +172,8 @@ public class AuthController {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     public Response verificarCuenta(VerificacionRequest request) {
-        if (request.getEmail() == null || request.getCodigo() == null) return error("Faltan datos.");
+        if (request.getEmail() == null || request.getCodigo() == null)
+            return error("Faltan datos.");
 
         // Aquí usamos la validación por Email que ya tienes en el DAO
         if (dao.validarCodigoPorEmail(request.getEmail(), request.getCodigo())) {
@@ -187,6 +205,7 @@ public class AuthController {
         }
         return Response.status(401).entity("{\"mensaje\": \"Credenciales incorrectas\"}").build();
     }
+
     /**
      * ENDPOINT: AGREGAR USUARIO DESDE ADMIN
      */
@@ -195,7 +214,7 @@ public class AuthController {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     public Response crearUsuarioAdmin(Usuario u) {
-        if(dao.agregarPersonalAdmin(u)) {
+        if (dao.agregarPersonalAdmin(u)) {
             return Response.ok("{\"mensaje\": \"Creado exitosamente\"}").build();
         }
         return Response.status(400).entity("{\"mensaje\": \"Error al crear.\"}").build();
@@ -210,12 +229,13 @@ public class AuthController {
     @Produces(MediaType.APPLICATION_JSON)
     public Response editarUsuarioAdmin(@PathParam("id") int id, Usuario u) {
         u.setIdUsuario(id);
-        if(dao.editarPersonalAdmin(u)) {
+        if (dao.editarPersonalAdmin(u)) {
             return Response.ok("{\"mensaje\": \"Actualizado exitosamente\"}").build();
         }
         return Response.status(400).entity("{\"mensaje\": \"Error al actualizar\"}").build();
     }
-   /**
+
+    /**
      * ENDPOINT PARA EL DASHBOARD DEL ADMINISTRADOR
      * Devuelve las métricas reales de la base de datos.
      */
@@ -227,6 +247,7 @@ public class AuthController {
         String jsonReal = dao.getAdminStatsJSON();
         return Response.ok(jsonReal).build();
     }
+
     /**
      * ENDPOINT: LISTAR TODOS LOS USUARIOS
      */
@@ -245,13 +266,15 @@ public class AuthController {
     @Produces(MediaType.APPLICATION_JSON)
     public Response cambiarEstado(@PathParam("id") int id, @QueryParam("activo") boolean activo) {
         boolean exito = dao.cambiarEstadoUsuario(id, activo);
-        if (exito) return Response.ok("{\"mensaje\": \"Estado actualizado correctamente\"}").build();
+        if (exito)
+            return Response.ok("{\"mensaje\": \"Estado actualizado correctamente\"}").build();
         return Response.status(400).entity("{\"mensaje\": \"Error al actualizar\"}").build();
     }
 
     /**
      * FORMATEADOR DE ERRORES
-     * Método auxiliar para enviar mensajes de error siempre en el mismo formato JSON.
+     * Método auxiliar para enviar mensajes de error siempre en el mismo formato
+     * JSON.
      */
     private Response error(String mensaje) {
         return Response.status(400).entity("{\"mensaje\": \"" + mensaje + "\"}").build();
@@ -260,30 +283,36 @@ public class AuthController {
     /**
      * ALGORITMO OFICIAL MÓDULO 10 PARA CÉDULA ECUATORIANA
      * Realiza operaciones matemáticas con los primeros 9 dígitos de la cédula
-     * para verificar si el resultado coincide con el décimo dígito (el verificador).
+     * para verificar si el resultado coincide con el décimo dígito (el
+     * verificador).
+     * 
      * @param cedula String de 10 números ingresado por el usuario.
      * @return true si las matemáticas coinciden, false si es falsa o mal formada.
      */
     private boolean esCedulaValida(String cedula) {
         // Verifica longitud y que solo contenga números
-        if (cedula == null || !cedula.matches("\\d{10}")) return false;
+        if (cedula == null || !cedula.matches("\\d{10}"))
+            return false;
 
         // Verifica que la provincia sea válida (01 a 24)
         int provincia = Integer.parseInt(cedula.substring(0, 2));
-        if (provincia < 1 || provincia > 24) return false;
+        if (provincia < 1 || provincia > 24)
+            return false;
 
         // El tercer dígito para personas naturales debe ser menor a 6
         int tercerDigito = Integer.parseInt(cedula.substring(2, 3));
-        if (tercerDigito >= 6) return false;
+        if (tercerDigito >= 6)
+            return false;
 
         // Multiplicadores oficiales del Registro Civil
-        int[] coeficientes = {2, 1, 2, 1, 2, 1, 2, 1, 2};
+        int[] coeficientes = { 2, 1, 2, 1, 2, 1, 2, 1, 2 };
         int suma = 0;
 
         // Multiplicar cada dígito por su coeficiente y sumar los resultados
         for (int i = 0; i < 9; i++) {
             int valor = Character.getNumericValue(cedula.charAt(i)) * coeficientes[i];
-            if (valor >= 10) valor -= 9; // Si el resultado es 10 o más, se le resta 9
+            if (valor >= 10)
+                valor -= 9; // Si el resultado es 10 o más, se le resta 9
             suma += valor;
         }
 
@@ -291,9 +320,11 @@ public class AuthController {
         int digitoVerificador = Character.getNumericValue(cedula.charAt(9));
         int decenaSuperior = ((suma + 9) / 10) * 10;
         int resultado = decenaSuperior - suma;
-        if (resultado == 10) resultado = 0;
+        if (resultado == 10)
+            resultado = 0;
 
-        // Si el resultado de la operación coincide con el último número de la cédula, es real
+        // Si el resultado de la operación coincide con el último número de la cédula,
+        // es real
         return resultado == digitoVerificador;
     }
 }
