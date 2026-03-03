@@ -44,7 +44,7 @@ public class UsuarioDAO {
             conn.setAutoCommit(false); // ¡IMPORTANTE! Apagamos el guardado automático para iniciar la transacción
 
             // --- A. INSERTAR USUARIO (Tabla de credenciales) ---
-            String sqlUsuario = "INSERT INTO usuarios (id_rol, usuario, contrasena, activo) VALUES (?, ?, ?, ?)";
+            String sqlUsuario = "INSERT INTO usuarios (id_rol, usuario, contrasena, activo, nombre, apellido) VALUES (?, ?, ?, ?, ?, ?)";
             // Pedimos a la BD que nos devuelva el ID autogenerado (PK) del nuevo usuario
             psUsuario = conn.prepareStatement(sqlUsuario, Statement.RETURN_GENERATED_KEYS);
 
@@ -52,6 +52,11 @@ public class UsuarioDAO {
             psUsuario.setString(2, u.getUsuario());
             psUsuario.setString(3, SecurityUtil.encriptar(u.getContrasena())); // Encriptación vital
             psUsuario.setBoolean(4, false); // Nace inactivo hasta validar su correo
+
+            String nombre = (u.getNombre() != null) ? u.getNombre() : "N/A";
+            String apellido = (u.getApellido() != null) ? u.getApellido() : "N/A";
+            psUsuario.setString(5, nombre);
+            psUsuario.setString(6, apellido);
 
             if (psUsuario.executeUpdate() == 0)
                 throw new SQLException("Fallo al insertar usuario.");
@@ -65,8 +70,7 @@ public class UsuarioDAO {
             }
 
             // --- B. INSERTAR CLIENTE (Tabla de datos personales) ---
-            String nombre = (u.getNombre() != null) ? u.getNombre() : "N/A";
-            String apellido = (u.getApellido() != null) ? u.getApellido() : "N/A";
+            // Las variables 'nombre' y 'apellido' ya fueron declaradas arriba (Paso A)
             String emailLimpio = u.getEmail().trim().toLowerCase();
 
             java.sql.Date fechaSql = null;
