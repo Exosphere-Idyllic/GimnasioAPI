@@ -305,13 +305,15 @@ public class UsuarioDAO {
         double ingresos = 0.0;
 
         try (Connection conn = ConexionDB.getConnection()) {
-            // 1. Contar clientes reales
-            ResultSet rs1 = conn.prepareStatement("SELECT COUNT(*) FROM clientes").executeQuery();
+            // 1. Contar clientes reales (id_rol = 4 y activos)
+            ResultSet rs1 = conn.prepareStatement("SELECT COUNT(*) FROM usuarios WHERE id_rol = 4 AND activo = true")
+                    .executeQuery();
             if (rs1.next())
                 totalClientes = rs1.getInt(1);
 
-            // 2. Contar entrenadores reales
-            ResultSet rs2 = conn.prepareStatement("SELECT COUNT(*) FROM entrenadores").executeQuery();
+            // 2. Contar entrenadores reales (id_rol = 3 y activos)
+            ResultSet rs2 = conn.prepareStatement("SELECT COUNT(*) FROM usuarios WHERE id_rol = 3 AND activo = true")
+                    .executeQuery();
             if (rs2.next())
                 totalEntrenadores = rs2.getInt(1);
 

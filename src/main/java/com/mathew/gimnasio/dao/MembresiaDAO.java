@@ -8,13 +8,16 @@ import java.time.LocalDate;
 
 /**
  * DAO para asignación de membresías (RF07).
- * Nota: clientes.id_membresia referencia membresias(id_membresia). Si se envía idTipoMembresia,
- * se asume que coincide con id_membresia (p. ej. mismos IDs en ambas tablas); si no, usar solo idMembresia.
+ * Nota: clientes.id_membresia referencia membresias(id_membresia). Si se envía
+ * idTipoMembresia,
+ * se asume que coincide con id_membresia (p. ej. mismos IDs en ambas tablas);
+ * si no, usar solo idMembresia.
  */
 public class MembresiaDAO {
 
     /**
-     * Asigna una membresía a un cliente: registra el pago, actualiza id_membresia y fecha_vencimiento.
+     * Asigna una membresía a un cliente: registra el pago, actualiza id_membresia y
+     * fecha_vencimiento.
      */
     public boolean asignarMembresia(int idCliente, MembresiaAsignacionDTO dto) {
         Connection conn = null;
@@ -22,7 +25,8 @@ public class MembresiaDAO {
             conn = ConexionDB.getConnection();
             conn.setAutoCommit(false);
 
-            int idMembresia = dto.getIdMembresia() != null ? dto.getIdMembresia() : (dto.getIdTipoMembresia() != null ? dto.getIdTipoMembresia() : 0);
+            int idMembresia = dto.getIdMembresia() != null ? dto.getIdMembresia()
+                    : (dto.getIdTipoMembresia() != null ? dto.getIdTipoMembresia() : 0);
             if (idMembresia <= 0) {
                 conn.rollback();
                 return false;
@@ -32,7 +36,8 @@ public class MembresiaDAO {
             double precio = 0;
 
             // Intentar obtener precio y duración de tipos_membresia (tiene duracion_dias)
-            PreparedStatement psTm = conn.prepareStatement("SELECT precio, duracion_dias FROM tipos_membresia WHERE id_tipo_membresia = ?");
+            PreparedStatement psTm = conn
+                    .prepareStatement("SELECT precio, duracion_dias FROM tipos_membresia WHERE id_tipo_membresia = ?");
             psTm.setInt(1, idMembresia);
             ResultSet rs = psTm.executeQuery();
             if (rs.next()) {
@@ -42,7 +47,8 @@ public class MembresiaDAO {
                 PreparedStatement psM = conn.prepareStatement("SELECT precio FROM membresias WHERE id_membresia = ?");
                 psM.setInt(1, idMembresia);
                 rs = psM.executeQuery();
-                if (rs.next()) precio = rs.getDouble("precio");
+                if (rs.next())
+                    precio = rs.getDouble("precio");
             }
 
             LocalDate vencimiento = LocalDate.now().plusDays(duracionDias);
@@ -75,10 +81,33 @@ public class MembresiaDAO {
             return true;
         } catch (Exception e) {
             e.printStackTrace();
-            try { if (conn != null) conn.rollback(); } catch (SQLException ex) {}
+            try {
+                if (conn != null)
+                    conn.rollback();
+            } catch (SQLException ex) {
+            }
             return false;
         } finally {
-            try { if (conn != null) conn.close(); } catch (SQLException ex) {}
+            try {
+                if (conn != null)
+                    conn.close();
+            } catch (SQLException ex) {
+            }
+        }
+    }
+
+    /**
+     * Cancela la membresía de un cliente (elimina id_membresia y
+     * fecha_vencimiento).
+     */
+    public boolean cancelarMembresia(int idCliente) {
+        String sql = "UPDATE clientes SET id_membresia = NULL, fecha_vencimiento = NULL WHERE id_cliente = ?";
+        try (Connection conn = ConexionDB.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, idCliente);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
         }
     }
 }

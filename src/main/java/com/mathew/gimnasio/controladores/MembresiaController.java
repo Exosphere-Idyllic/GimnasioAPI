@@ -16,7 +16,8 @@ public class MembresiaController {
 
     /**
      * POST /membresias/{idCliente} - Asignar membresía a un cliente.
-     * Body: { "idMembresia": 1 } o { "idTipoMembresia": 1 } (opcional: "duracionDias": 30)
+     * Body: { "idMembresia": 1 } o { "idTipoMembresia": 1 } (opcional:
+     * "duracionDias": 30)
      */
     @POST
     @Path("/{idCliente}")
@@ -27,7 +28,21 @@ public class MembresiaController {
             return Response.status(400).entity("{\"mensaje\":\"Debe indicar idMembresia o idTipoMembresia\"}").build();
         }
         boolean ok = dao.asignarMembresia(idCliente, dto);
-        if (ok) return Response.ok("{\"mensaje\":\"Membresía asignada correctamente\"}").build();
+        if (ok)
+            return Response.ok("{\"mensaje\":\"Membresía asignada correctamente\"}").build();
         return Response.status(400).entity("{\"mensaje\":\"Error al asignar membresía\"}").build();
+    }
+
+    /**
+     * DELETE /membresias/{idCliente} - Cancelar (quitar) membresía actual.
+     */
+    @DELETE
+    @Path("/{idCliente}")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response cancelarMembresia(@PathParam("idCliente") int idCliente) {
+        if (dao.cancelarMembresia(idCliente)) {
+            return Response.ok("{\"mensaje\":\"Membresía cancelada correctamente\"}").build();
+        }
+        return Response.status(400).entity("{\"mensaje\":\"Error al cancelar membresía\"}").build();
     }
 }
