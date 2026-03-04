@@ -1,53 +1,62 @@
 package com.mathew.gimnasio.servicios;
 
 import com.mathew.gimnasio.configuracion.ConfiguracionEnv;
-import jakarta.mail.*;
-import jakarta.mail.internet.*;
-import java.util.Properties;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 
 /**
- * Servicio de correo. Credenciales desde variables de entorno:
- * MAIL_USER, MAIL_PASSWORD (no subir al repositorio).
+ * Servicio de correo usando la API de Resend vía HTTP.
+ * Requiere la variable de entorno RESEND_API_KEY.
  */
 public class EmailService {
 
-    private final String miCorreo;
-    private final String miPassword;
+    private final String apiKey;
+    private final String remitente;
 
     public EmailService() {
-        this.miCorreo = ConfiguracionEnv.get("MAIL_USER", "");
-        this.miPassword = ConfiguracionEnv.get("MAIL_PASSWORD", "");
+        this.apiKey = ConfiguracionEnv.get("RESEND_API_KEY", "");
+        // Si no se configura un remitente, Resend requiere usar 'onboarding@resend.dev'
+        // para pruebas
+        this.remitente = ConfiguracionEnv.get("MAIL_USER", "onboarding@resend.dev");
     }
 
     public void enviarCodigo(String destinatario, String codigo) {
-        if (miCorreo.isEmpty() || miPassword.isEmpty()) {
-            System.err.println("MAIL_USER y MAIL_PASSWORD no configurados; correo no enviado.");
+        if (apiKey.isEmpty()) {
+            System.err.println("RESEND_API_KEY no configurado; correo no enviado.");
             return;
         }
-        Properties props = new Properties();
-        props.put("mail.smtp.auth", "true");
-        props.put("mail.smtp.starttls.enable", "true");
-        props.put("mail.smtp.host", "smtp.gmail.com");
-        props.put("mail.smtp.port", "587");
-
-        Session session = Session.getInstance(props, new Authenticator() {
-            @Override
-            protected PasswordAuthentication getPasswordAuthentication() {
-                return new PasswordAuthentication(miCorreo, miPassword);
-            }
-        });
 
         try {
-            Message message = new MimeMessage(session);
-            message.setFrom(new InternetAddress(miCorreo));
-            message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(destinatario));
-            message.setSubject("Código de Verificación - Gimnasio");
-            message.setText("Hola,\n\nTu código de acceso es: " + codigo + "\n\nEste código expira en 5 minutos.");
-            Transport.send(message);
-            System.out.println("Correo enviado correctamente a: " + destinatario);
-        } catch (MessagingException e) {
+            URL url = new URL("https://api.resend.com/emails");
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("POST");
+            conn.setRequestProperty("Authorization", "Bearer " + apiKey);
+            conn.setRequestProperty("Content-Type", "application/json");
+            conn.setDoOutput(true);
+
+            String jsonInputString = "{"
+                    + "\"from\": \"Gimnasio <" + remitente + ">\","
+                    + "\"to\": [\"" + destinatario + "\"],"
+                    + "\"subject\": \"Código de Verificación - Gimnasio\","
+                    + "\"html\": \"<p>Hola,</p><p>Tu código de acceso es: <strong>" + codigo
+                    + "</strong></p><p>Este código expira en 5 minutos.</p>\""
+                    + "}";
+
+            try (OutputStream os = conn.getOutputStream()) {
+                byte[] input = jsonInputString.getBytes("utf-8");
+                os.write(input, 0, input.length);
+            }
+
+            int code = conn.getResponseCode();
+            if (code >= 200 && code < 300) {
+                System.out.println("Correo enviado correctamente a: " + destinatario + " (Resend API)");
+            } else {
+                System.err.println("Error enviando correo (Resend API HTTP " + code + ")");
+            }
+        } catch (Exception e) {
             e.printStackTrace();
-            System.err.println("Error enviando correo: " + e.getMessage());
+            System.err.println("Excepción enviando correo por HTTP: " + e.getMessage());
         }
     }
 }
