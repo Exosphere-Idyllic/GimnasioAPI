@@ -19,11 +19,25 @@ public class MembresiaDAO {
      * Asigna una membresía a un cliente: registra el pago, actualiza id_membresia y
      * fecha_vencimiento.
      */
-    public boolean asignarMembresia(int idCliente, MembresiaAsignacionDTO dto) {
+    public boolean asignarMembresia(int idUsuario, MembresiaAsignacionDTO dto) {
         Connection conn = null;
         try {
             conn = ConexionDB.getConnection();
             conn.setAutoCommit(false);
+
+            int idCliente = -1;
+            try (PreparedStatement psC = conn
+                    .prepareStatement("SELECT id_cliente FROM clientes WHERE id_usuario = ?")) {
+                psC.setInt(1, idUsuario);
+                try (ResultSet rsC = psC.executeQuery()) {
+                    if (rsC.next()) {
+                        idCliente = rsC.getInt("id_cliente");
+                    } else {
+                        conn.rollback();
+                        return false;
+                    }
+                }
+            }
 
             int idMembresia = dto.getIdMembresia() != null ? dto.getIdMembresia()
                     : (dto.getIdTipoMembresia() != null ? dto.getIdTipoMembresia() : 0);
@@ -53,21 +67,13 @@ public class MembresiaDAO {
 
             LocalDate vencimiento = LocalDate.now().plusDays(duracionDias);
 
-            try {
-                PreparedStatement psPago = conn.prepareStatement(
-                        "INSERT INTO pagos (id_membresia, monto_pagado, metodo_pago, id_cliente) VALUES (?, ?, 'EFECTIVO', ?)");
+            try (PreparedStatement psPago = conn.prepareStatement(
+                    "INSERT INTO pagos (id_membresia, monto_pagado, metodo_pago, id_cliente) VALUES (?, ?, 'EFECTIVO', ?)")) {
                 psPago.setInt(1, idMembresia);
                 psPago.setDouble(2, precio);
                 psPago.setInt(3, idCliente);
                 psPago.executeUpdate();
-            } catch (SQLException e) {
-                PreparedStatement psPago = conn.prepareStatement(
-                        "INSERT INTO pagos (id_membresia, monto_pagado, metodo_pago) VALUES (?, ?, 'EFECTIVO')");
-                psPago.setInt(1, idMembresia);
-                psPago.setDouble(2, precio);
-                psPago.executeUpdate();
             }
-
             PreparedStatement psCli = conn.prepareStatement(
                     "UPDATE clientes SET id_membresia = ?, fecha_vencimiento = ? WHERE id_cliente = ?");
             psCli.setInt(1, idMembresia);
@@ -100,10 +106,10 @@ public class MembresiaDAO {
      * Cancela la membresía de un cliente (elimina id_membresia y
      * fecha_vencimiento).
      */
-    public boolean cancelarMembresia(int idCliente) {
-        String sql = "UPDATE clientes SET id_membresia = NULL, fecha_vencimiento = NULL WHERE id_cliente = ?";
+    public boolean cancelarMembresia(int idUsuario) {
+        String sql = "UPDATE clientes SET id_membresia = NULL, fecha_vencimiento = NULL WHERE id_usuario = ?";
         try (Connection conn = ConexionDB.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setInt(1, idCliente);
+            ps.setInt(1, idUsuario);
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
             e.printStackTrace();

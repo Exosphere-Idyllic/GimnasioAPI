@@ -15,32 +15,32 @@ public class MembresiaController {
     private MembresiaDAO dao = new MembresiaDAO();
 
     /**
-     * POST /membresias/{idCliente} - Asignar membresía a un cliente.
+     * POST /membresias/{idUsuario} - Asignar membresía a un cliente.
      * Body: { "idMembresia": 1 } o { "idTipoMembresia": 1 } (opcional:
      * "duracionDias": 30)
      */
     @POST
-    @Path("/{idCliente}")
+    @Path("/{idUsuario}")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Response asignarMembresia(@PathParam("idCliente") int idCliente, MembresiaAsignacionDTO dto) {
+    public Response asignarMembresia(@PathParam("idUsuario") int idUsuario, MembresiaAsignacionDTO dto) {
         if (dto == null || (dto.getIdMembresia() == null && dto.getIdTipoMembresia() == null)) {
             return Response.status(400).entity("{\"mensaje\":\"Debe indicar idMembresia o idTipoMembresia\"}").build();
         }
-        boolean ok = dao.asignarMembresia(idCliente, dto);
+        boolean ok = dao.asignarMembresia(idUsuario, dto);
         if (ok)
             return Response.ok("{\"mensaje\":\"Membresía asignada correctamente\"}").build();
         return Response.status(400).entity("{\"mensaje\":\"Error al asignar membresía\"}").build();
     }
 
     /**
-     * DELETE /membresias/{idCliente} - Cancelar (quitar) membresía actual.
+     * DELETE /membresias/{idUsuario} - Cancelar (quitar) membresía actual.
      */
     @DELETE
-    @Path("/{idCliente}")
+    @Path("/{idUsuario}")
     @Produces(MediaType.APPLICATION_JSON)
-    public Response cancelarMembresia(@PathParam("idCliente") int idCliente) {
-        if (dao.cancelarMembresia(idCliente)) {
+    public Response cancelarMembresia(@PathParam("idUsuario") int idUsuario) {
+        if (dao.cancelarMembresia(idUsuario)) {
             return Response.ok("{\"mensaje\":\"Membresía cancelada correctamente\"}").build();
         }
         return Response.status(400).entity("{\"mensaje\":\"Error al cancelar membresía\"}").build();
