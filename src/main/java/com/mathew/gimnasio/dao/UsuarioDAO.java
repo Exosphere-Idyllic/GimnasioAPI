@@ -342,10 +342,15 @@ public class UsuarioDAO {
         String sql = "SELECT u.id_usuario, u.usuario, u.nombre, u.apellido, u.activo, r.nombre_rol, " +
                 "COALESCE(c.id_cliente, 0) as id_cliente, " +
                 "COALESCE(m.nombre, '') as nombre_membresia, " +
-                "c.fecha_vencimiento " +
+                "c.fecha_vencimiento, " +
+                "COALESCE(c.email, e.email, '') as email, " +
+                "COALESCE(c.telefono, '') as telefono, " +
+                "COALESCE(c.cedula, '') as cedula, " +
+                "c.fecha_nacimiento " +
                 "FROM usuarios u INNER JOIN roles r ON u.id_rol = r.id_rol " +
                 "LEFT JOIN clientes c ON u.id_usuario = c.id_usuario " +
                 "LEFT JOIN membresias m ON c.id_membresia = m.id_membresia " +
+                "LEFT JOIN entrenadores e ON u.id_usuario = e.id_usuario " +
                 "ORDER BY u.id_rol ASC, u.id_usuario DESC";
 
         try (Connection conn = ConexionDB.getConnection();
@@ -364,6 +369,17 @@ public class UsuarioDAO {
                         .append(rs.getString("apellido") != null ? rs.getString("apellido") : "").append("\",")
                         .append("\"rol\":\"").append(rs.getString("nombre_rol")).append("\",")
                         .append("\"activo\":").append(rs.getBoolean("activo")).append(",")
+                        .append("\"email\":\"").append(rs.getString("email") != null ? rs.getString("email") : "")
+                        .append("\",")
+                        .append("\"telefono\":\"")
+                        .append(rs.getString("telefono") != null ? rs.getString("telefono") : "").append("\",")
+                        .append("\"cedula\":\"").append(rs.getString("cedula") != null ? rs.getString("cedula") : "")
+                        .append("\",")
+                        .append("\"fechaNacimiento\":")
+                        .append(rs.getDate("fecha_nacimiento") != null
+                                ? "\"" + rs.getDate("fecha_nacimiento").toString() + "\""
+                                : "null")
+                        .append(",")
                         .append("\"idCliente\":").append(rs.getInt("id_cliente")).append(",")
                         .append("\"membresia\":\"")
                         .append(rs.getString("nombre_membresia") != null ? rs.getString("nombre_membresia") : "")
@@ -397,43 +413,209 @@ public class UsuarioDAO {
 
     // 3. AGREGAR NUEVO PERSONAL / USUARIO
     public boolean agregarPersonalAdmin(Usuario u) {
-        String sql = "INSERT INTO usuarios (id_rol, usuario, contrasena, activo, nombre, apellido) VALUES (?, ?, ?, true, ?, ?)";
-        try (Connection conn = ConexionDB.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setInt(1, u.getIdRol());
-            ps.setString(2, u.getUsuario());
-            ps.setString(3, SecurityUtil.encriptar(u.getContrasena()));
-            ps.setString(4, u.getNombre());
-            ps.setString(5, u.getApellido());
-            return ps.executeUpdate() > 0;
+        String insertUsuario = "INSERT INTO usuarios (id_rol, usuario, contrasena, activo, nombre, apellido) VALUES (?, ?, ?, true, ?, ?) RETURNING id_usuario";
+        String insertCliente = "INSERT INTO clientes (id_usuario, nombre, apellido, email, telefono, cedula, fecha_nacimiento) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        String insertEntrenador = "INSERT INTO entrenadores (id_usuario, nombre, apellido, email) VALUES (?, ?, ?, ?)";
+
+        Connection conn = null;
+        try {
+            conn = ConexionDB.getConnection();
+            conn.setAutoCommit(false);
+
+            int newIdUsuario = -1;
+            try (PreparedStatement psU = conn.prepareStatement(insertUsuario)) {
+                psU.setInt(1, u.getIdRol());
+                psU.setString(2, u.getUsuario());
+                psU.setString(3, SecurityUtil.encriptar(u.getContrasena()));
+                psU.setString(4, u.getNombre());
+                psU.setString(5, u.getApellido());
+                try (ResultSet rs = psU.executeQuery()) {
+                    if (rs.next()) {
+                        newIdUsuario = rs.getInt("id_usuario");
+                    } else {
+                        conn.rollback();
+                        return false;
+                    }
+                }
+            }
+
+            if (u.getIdRol() == 4) { // Cliente
+                try (PreparedStatement psC = conn.prepareStatement(insertCliente)) {
+                    psC.setInt(1, newIdUsuario);
+                    psC.setString(2, u.getNombre() != null ? u.getNombre() : "Sin Nombre");
+                    psC.setString(3, u.getApellido() != null ? u.getApellido() : "Sin Apellido");
+                    psC.setString(4, (u.getEmail() != null && !u.getEmail().isEmpty()) ? u.getEmail()
+                            : u.getUsuario() + "_" + System.currentTimeMillis() + "@gym.local");
+                    psC.setString(5, u.getTelefono());
+                    psC.setString(6, u.getCedula());
+                    if (u.getFechaNacimiento() != null && !u.getFechaNacimiento().isEmpty()) {
+                        psC.setDate(7, java.sql.Date.valueOf(u.getFechaNacimiento()));
+                    } else {
+                        psC.setNull(7, java.sql.Types.DATE);
+                    }
+                    psC.executeUpdate();
+                }
+            } else if (u.getIdRol() == 3) { // Entrenador
+                try (PreparedStatement psE = conn.prepareStatement(insertEntrenador)) {
+                    psE.setInt(1, newIdUsuario);
+                    psE.setString(2, u.getNombre() != null ? u.getNombre() : "Sin Nombre");
+                    psE.setString(3, u.getApellido() != null ? u.getApellido() : "Sin Apellido");
+                    psE.setString(4, (u.getEmail() != null && !u.getEmail().isEmpty()) ? u.getEmail()
+                            : u.getUsuario() + "_" + System.currentTimeMillis() + "@gym.local");
+                    psE.executeUpdate();
+                }
+            }
+
+            conn.commit();
+            return true;
         } catch (Exception e) {
             e.printStackTrace();
+            if (conn != null) {
+                try {
+                    conn.rollback();
+                } catch (Exception ex) {
+                }
+            }
             return false;
+        } finally {
+            if (conn != null) {
+                try {
+                    conn.setAutoCommit(true);
+                    conn.close();
+                } catch (Exception ex) {
+                }
+            }
         }
     }
 
     // 4. EDITAR USUARIO (Y su contraseña si la escribe)
     public boolean editarPersonalAdmin(Usuario u) {
         boolean cambiaPass = (u.getContrasena() != null && !u.getContrasena().trim().isEmpty());
-        String sql = cambiaPass
+        String sqlU = cambiaPass
                 ? "UPDATE usuarios SET id_rol=?, usuario=?, contrasena=?, nombre=?, apellido=? WHERE id_usuario=?"
                 : "UPDATE usuarios SET id_rol=?, usuario=?, nombre=?, apellido=? WHERE id_usuario=?";
 
-        try (Connection conn = ConexionDB.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setInt(1, u.getIdRol());
-            ps.setString(2, u.getUsuario());
-            if (cambiaPass) {
-                ps.setString(3, SecurityUtil.encriptar(u.getContrasena()));
-                ps.setString(4, u.getNombre());
-                ps.setString(5, u.getApellido());
-                ps.setInt(6, u.getIdUsuario());
-            } else {
-                ps.setString(3, u.getNombre());
-                ps.setString(4, u.getApellido());
-                ps.setInt(5, u.getIdUsuario());
+        Connection conn = null;
+        try {
+            conn = ConexionDB.getConnection();
+            conn.setAutoCommit(false);
+
+            try (PreparedStatement psU = conn.prepareStatement(sqlU)) {
+                psU.setInt(1, u.getIdRol());
+                psU.setString(2, u.getUsuario());
+                if (cambiaPass) {
+                    psU.setString(3, SecurityUtil.encriptar(u.getContrasena()));
+                    psU.setString(4, u.getNombre());
+                    psU.setString(5, u.getApellido());
+                    psU.setInt(6, u.getIdUsuario());
+                } else {
+                    psU.setString(3, u.getNombre());
+                    psU.setString(4, u.getApellido());
+                    psU.setInt(5, u.getIdUsuario());
+                }
+                if (psU.executeUpdate() == 0) {
+                    conn.rollback();
+                    return false;
+                }
             }
-            return ps.executeUpdate() > 0;
+
+            if (u.getIdRol() == 4) { // Cliente
+                String sqlC_Check = "SELECT 1 FROM clientes WHERE id_usuario = ?";
+                boolean existeCliente = false;
+                try (PreparedStatement psCheck = conn.prepareStatement(sqlC_Check)) {
+                    psCheck.setInt(1, u.getIdUsuario());
+                    try (ResultSet rs = psCheck.executeQuery()) {
+                        existeCliente = rs.next();
+                    }
+                }
+
+                if (existeCliente) {
+                    String sqlC = "UPDATE clientes SET nombre=?, apellido=?, email=?, telefono=?, cedula=?, fecha_nacimiento=? WHERE id_usuario=?";
+                    try (PreparedStatement psC = conn.prepareStatement(sqlC)) {
+                        psC.setString(1, u.getNombre());
+                        psC.setString(2, u.getApellido());
+                        psC.setString(3, (u.getEmail() != null && !u.getEmail().isEmpty()) ? u.getEmail()
+                                : u.getUsuario() + "_" + System.currentTimeMillis() + "@gym.local");
+                        psC.setString(4, u.getTelefono());
+                        psC.setString(5, u.getCedula());
+                        if (u.getFechaNacimiento() != null && !u.getFechaNacimiento().isEmpty()) {
+                            psC.setDate(6, java.sql.Date.valueOf(u.getFechaNacimiento()));
+                        } else {
+                            psC.setNull(6, java.sql.Types.DATE);
+                        }
+                        psC.setInt(7, u.getIdUsuario());
+                        psC.executeUpdate();
+                    }
+                } else {
+                    String sqlC_Ins = "INSERT INTO clientes (id_usuario, nombre, apellido, email, telefono, cedula, fecha_nacimiento) VALUES (?, ?, ?, ?, ?, ?, ?)";
+                    try (PreparedStatement psC = conn.prepareStatement(sqlC_Ins)) {
+                        psC.setInt(1, u.getIdUsuario());
+                        psC.setString(2, u.getNombre() != null ? u.getNombre() : "Sin Nombre");
+                        psC.setString(3, u.getApellido() != null ? u.getApellido() : "Sin Apellido");
+                        psC.setString(4, (u.getEmail() != null && !u.getEmail().isEmpty()) ? u.getEmail()
+                                : u.getUsuario() + "_" + System.currentTimeMillis() + "@gym.local");
+                        psC.setString(5, u.getTelefono());
+                        psC.setString(6, u.getCedula());
+                        if (u.getFechaNacimiento() != null && !u.getFechaNacimiento().isEmpty()) {
+                            psC.setDate(7, java.sql.Date.valueOf(u.getFechaNacimiento()));
+                        } else {
+                            psC.setNull(7, java.sql.Types.DATE);
+                        }
+                        psC.executeUpdate();
+                    }
+                }
+            } else if (u.getIdRol() == 3) { // Entrenador
+                String sqlE_Check = "SELECT 1 FROM entrenadores WHERE id_usuario = ?";
+                boolean existeEntrenador = false;
+                try (PreparedStatement psCheck = conn.prepareStatement(sqlE_Check)) {
+                    psCheck.setInt(1, u.getIdUsuario());
+                    try (ResultSet rs = psCheck.executeQuery()) {
+                        existeEntrenador = rs.next();
+                    }
+                }
+
+                if (existeEntrenador) {
+                    String sqlE = "UPDATE entrenadores SET nombre=?, apellido=?, email=? WHERE id_usuario=?";
+                    try (PreparedStatement psE = conn.prepareStatement(sqlE)) {
+                        psE.setString(1, u.getNombre());
+                        psE.setString(2, u.getApellido());
+                        psE.setString(3, (u.getEmail() != null && !u.getEmail().isEmpty()) ? u.getEmail()
+                                : u.getUsuario() + "_" + System.currentTimeMillis() + "@gym.local");
+                        psE.setInt(4, u.getIdUsuario());
+                        psE.executeUpdate();
+                    }
+                } else {
+                    String sqlE_Ins = "INSERT INTO entrenadores (id_usuario, nombre, apellido, email) VALUES (?, ?, ?, ?)";
+                    try (PreparedStatement psE = conn.prepareStatement(sqlE_Ins)) {
+                        psE.setInt(1, u.getIdUsuario());
+                        psE.setString(2, u.getNombre() != null ? u.getNombre() : "Sin Nombre");
+                        psE.setString(3, u.getApellido() != null ? u.getApellido() : "Sin Apellido");
+                        psE.setString(4, (u.getEmail() != null && !u.getEmail().isEmpty()) ? u.getEmail()
+                                : u.getUsuario() + "_" + System.currentTimeMillis() + "@gym.local");
+                        psE.executeUpdate();
+                    }
+                }
+            }
+
+            conn.commit();
+            return true;
         } catch (Exception e) {
+            e.printStackTrace();
+            if (conn != null) {
+                try {
+                    conn.rollback();
+                } catch (Exception ex) {
+                }
+            }
             return false;
+        } finally {
+            if (conn != null) {
+                try {
+                    conn.setAutoCommit(true);
+                    conn.close();
+                } catch (Exception ex) {
+                }
+            }
         }
     }
 

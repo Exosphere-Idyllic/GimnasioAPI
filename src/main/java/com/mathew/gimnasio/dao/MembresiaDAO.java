@@ -33,8 +33,48 @@ public class MembresiaDAO {
                     if (rsC.next()) {
                         idCliente = rsC.getInt("id_cliente");
                     } else {
-                        conn.rollback();
-                        return false;
+                        // The user exists but is not yet in the 'clientes' table (created from Admin
+                        // Dashboard without email)
+                        // Fetch their details from the 'usuarios' table
+                        String nombre = "";
+                        String apellido = "";
+                        String username = "";
+                        try (PreparedStatement psU = conn.prepareStatement(
+                                "SELECT nombre, apellido, usuario FROM usuarios WHERE id_usuario = ?")) {
+                            psU.setInt(1, idUsuario);
+                            try (ResultSet rsU = psU.executeQuery()) {
+                                if (rsU.next()) {
+                                    nombre = rsU.getString("nombre");
+                                    apellido = rsU.getString("apellido");
+                                    username = rsU.getString("usuario");
+                                } else {
+                                    conn.rollback();
+                                    return false;
+                                }
+                            }
+                        }
+
+                        // Create the client record
+                        try (PreparedStatement psIns = conn.prepareStatement(
+                                "INSERT INTO clientes (id_usuario, nombre, apellido, email) VALUES (?, ?, ?, ?) RETURNING id_cliente")) {
+                            psIns.setInt(1, idUsuario);
+                            psIns.setString(2, nombre != null ? nombre : "Sin Nombre");
+                            psIns.setString(3, apellido != null ? apellido : "Sin Apellido");
+                            psIns.setString(4, username + "_" + System.currentTimeMillis() + "@gym.local"); // Dummy
+                                                                                                            // email
+                                                                                                            // since
+                                                                                                            // it's NOT
+                                                                                                            // NULL and
+                                                                                                            // UNIQUE
+                            try (ResultSet rsIns = psIns.executeQuery()) {
+                                if (rsIns.next()) {
+                                    idCliente = rsIns.getInt("id_cliente");
+                                } else {
+                                    conn.rollback();
+                                    return false;
+                                }
+                            }
+                        }
                     }
                 }
             }
