@@ -14,7 +14,8 @@ import java.util.ArrayList;
 /**
  * CLASE DAO DEL ENTRENADOR
  * Esta clase es el motor que permite a los entrenadores gestionar el gimnasio.
- * Contiene la lógica para consultar estadísticas, ver el progreso de los alumnos
+ * Contiene la lógica para consultar estadísticas, ver el progreso de los
+ * alumnos
  * y realizar acciones como crear, editar o "borrar" rutinas.
  */
 public class EntrenadorDAO {
@@ -49,26 +50,29 @@ public class EntrenadorDAO {
             ps = conn.prepareStatement("SELECT COUNT(*) FROM rutinas WHERE id_entrenador = ? AND activa = TRUE");
             ps.setInt(1, idEntrenador);
             rs = ps.executeQuery();
-            if (rs.next()) dto.rutinasCreadas = rs.getInt(1);
+            if (rs.next())
+                dto.rutinasCreadas = rs.getInt(1);
 
-            // Contamos cuántos alumnos diferentes tiene asignados.
-            ps = conn.prepareStatement("SELECT COUNT(DISTINCT id_cliente) FROM rutinas WHERE id_entrenador = ? AND activa = TRUE");
+            // Contamos cuántos alumnos diferentes tiene asignados de forma directa en su
+            // ficha.
+            ps = conn.prepareStatement("SELECT COUNT(*) FROM clientes WHERE id_entrenador = ?");
             ps.setInt(1, idEntrenador);
             rs = ps.executeQuery();
-            if (rs.next()) dto.totalAlumnos = rs.getInt(1);
+            if (rs.next())
+                dto.totalAlumnos = rs.getInt(1);
 
-            // 3. LISTA DE ALUMNOS Y SU PROGRESO DIARIO
-            // Traemos a los alumnos y revisamos si ya presionaron el botón "Terminar" hoy.
+            // Traemos a todos los alumnos asignados al entrenador, tengan o no rutina, y
+            // revisamos si ya presionaron el botón "Terminar" hoy.
             dto.listaAlumnos = new ArrayList<>();
-            String sqlAlumnos = "SELECT DISTINCT c.id_cliente, c.nombre || ' ' || c.apellido as n, " +
+            String sqlAlumnos = "SELECT c.id_cliente, c.nombre || ' ' || c.apellido as n, " +
                     "COALESCE(m.nombre, 'Sin Plan') as plan, " +
-                    "r.nombre_rutina, " +
+                    "COALESCE(r.nombre_rutina, 'Sin Rutina') as nombre_rutina, " +
                     "CASE WHEN h.id_historial IS NOT NULL THEN 'SI' ELSE 'NO' END as termino " +
-                    "FROM rutinas r " +
-                    "JOIN clientes c ON r.id_cliente = c.id_cliente " +
+                    "FROM clientes c " +
                     "LEFT JOIN membresias m ON c.id_membresia = m.id_membresia " +
+                    "LEFT JOIN rutinas r ON c.id_cliente = r.id_cliente AND r.activa = TRUE " +
                     "LEFT JOIN historial_entrenamientos h ON c.id_cliente = h.id_cliente AND h.fecha = CURRENT_DATE " +
-                    "WHERE r.id_entrenador = ? AND r.activa = TRUE"; // Solo activos
+                    "WHERE c.id_entrenador = ? ORDER BY c.nombre";
 
             ps = conn.prepareStatement(sqlAlumnos);
             ps.setInt(1, idEntrenador);
@@ -80,14 +84,15 @@ public class EntrenadorDAO {
                         rs.getString("n"),
                         rs.getString("plan"),
                         rs.getString("nombre_rutina"),
-                        yaTermino
-                ));
+                        yaTermino));
             }
 
             // 4. BIBLIOTECA DE RUTINAS
-            // Listamos todas las rutinas (incluso las inactivas) para que el profesor pueda administrarlas.
+            // Listamos todas las rutinas (incluso las inactivas) para que el profesor pueda
+            // administrarlas.
             dto.listaRutinas = new ArrayList<>();
-            ps = conn.prepareStatement("SELECT id_rutina, nombre_rutina, activa, id_cliente FROM rutinas WHERE id_entrenador = ? ORDER BY id_rutina DESC");
+            ps = conn.prepareStatement(
+                    "SELECT id_rutina, nombre_rutina, activa, id_cliente FROM rutinas WHERE id_entrenador = ? ORDER BY id_rutina DESC");
             ps.setInt(1, idEntrenador);
             rs = ps.executeQuery();
             while (rs.next()) {
@@ -95,14 +100,16 @@ public class EntrenadorDAO {
                         rs.getInt("id_rutina"),
                         rs.getString("nombre_rutina"),
                         rs.getBoolean("activa"),
-                        rs.getInt("id_cliente")
-                );
+                        rs.getInt("id_cliente"));
 
-                // También cargamos qué ejercicios tiene cada rutina para poder editarlos después.
-                PreparedStatement ps2 = conn.prepareStatement("SELECT id_ejercicio FROM detalle_rutinas WHERE id_rutina = ?");
+                // También cargamos qué ejercicios tiene cada rutina para poder editarlos
+                // después.
+                PreparedStatement ps2 = conn
+                        .prepareStatement("SELECT id_ejercicio FROM detalle_rutinas WHERE id_rutina = ?");
                 ps2.setInt(1, item.id);
                 ResultSet rs2 = ps2.executeQuery();
-                while (rs2.next()) item.idsEjercicios.add(rs2.getInt(1));
+                while (rs2.next())
+                    item.idsEjercicios.add(rs2.getInt(1));
 
                 dto.listaRutinas.add(item);
             }
@@ -115,7 +122,8 @@ public class EntrenadorDAO {
 
     /**
      * CREAR NUEVA RUTINA
-     * Registra una rutina y sus ejercicios. Usa "transacciones" para que si algo falla,
+     * Registra una rutina y sus ejercicios. Usa "transacciones" para que si algo
+     * falla,
      * no se guarde nada a medias.
      */
     public boolean crearRutina(int idUsuarioEntrenador, NuevaRutinaDTO datos) {
@@ -129,10 +137,13 @@ public class EntrenadorDAO {
             PreparedStatement ps = conn.prepareStatement("SELECT id_entrenador FROM entrenadores WHERE id_usuario = ?");
             ps.setInt(1, idUsuarioEntrenador);
             ResultSet rs = ps.executeQuery();
-            if (rs.next()) idEntrenador = rs.getInt("id_entrenador");
-            else return false;
+            if (rs.next())
+                idEntrenador = rs.getInt("id_entrenador");
+            else
+                return false;
 
-            // 2. Limpieza: Si le asignamos una rutina nueva, borramos el "completado" de hoy.
+            // 2. Limpieza: Si le asignamos una rutina nueva, borramos el "completado" de
+            // hoy.
             String sqlReset = "DELETE FROM historial_entrenamientos WHERE id_cliente = ? AND fecha = CURRENT_DATE";
             PreparedStatement psReset = conn.prepareStatement(sqlReset);
             psReset.setInt(1, datos.getIdCliente());
@@ -147,7 +158,8 @@ public class EntrenadorDAO {
             rs = ps.executeQuery();
 
             int idRutina = 0;
-            if (rs.next()) idRutina = rs.getInt(1);
+            if (rs.next())
+                idRutina = rs.getInt(1);
 
             // 4. Guardamos ejercicios (con series/reps/descanso si vienen en ejercicios)
             if (datos.getEjercicios() != null && !datos.getEjercicios().isEmpty()) {
@@ -164,7 +176,8 @@ public class EntrenadorDAO {
                     }
                     ps.executeBatch();
                 } catch (SQLException ex) {
-                    ps = conn.prepareStatement("INSERT INTO detalle_rutinas (id_rutina, id_ejercicio, series, repeticiones) VALUES (?, ?, ?, ?)");
+                    ps = conn.prepareStatement(
+                            "INSERT INTO detalle_rutinas (id_rutina, id_ejercicio, series, repeticiones) VALUES (?, ?, ?, ?)");
                     for (EjercicioEnRutinaDTO e : datos.getEjercicios()) {
                         ps.setInt(1, idRutina);
                         ps.setInt(2, e.idEjercicio);
@@ -203,13 +216,15 @@ public class EntrenadorDAO {
         } catch (Exception e) {
             e.printStackTrace();
             try {
-                if (conn != null) conn.rollback();
+                if (conn != null)
+                    conn.rollback();
             } catch (Exception ex) {
             } // Si falló algo, cancelamos todo
             return false;
         } finally {
             try {
-                if (conn != null) conn.close();
+                if (conn != null)
+                    conn.close();
             } catch (Exception ex) {
             }
         }
@@ -237,13 +252,14 @@ public class EntrenadorDAO {
     public java.util.List<EntrenadorDashboardDTO.AlumnoResumen> obtenerAgendaHoy(int idUsuarioEntrenador) {
         java.util.List<EntrenadorDashboardDTO.AlumnoResumen> agenda = new ArrayList<>();
         try (Connection conn = ConexionDB.getConnection()) {
-            String sql = "SELECT c.id_cliente, c.nombre || ' ' || c.apellido as n, r.nombre_rutina, " +
+            String sql = "SELECT c.id_cliente, c.nombre || ' ' || c.apellido as n, COALESCE(r.nombre_rutina, 'Sin Rutina') as nombre_rutina, "
+                    +
                     "CASE WHEN h.id_historial IS NOT NULL THEN 'SI' ELSE 'NO' END as completo " +
-                    "FROM rutinas r " +
-                    "JOIN clientes c ON r.id_cliente = c.id_cliente " +
-                    "JOIN entrenadores e ON r.id_entrenador = e.id_entrenador " +
+                    "FROM clientes c " +
+                    "JOIN entrenadores e ON c.id_entrenador = e.id_entrenador " +
+                    "LEFT JOIN rutinas r ON c.id_cliente = r.id_cliente AND r.activa = TRUE " +
                     "LEFT JOIN historial_entrenamientos h ON c.id_cliente = h.id_cliente AND h.fecha = CURRENT_DATE " +
-                    "WHERE e.id_usuario = ? AND r.activa = TRUE"; // Solo activas
+                    "WHERE e.id_usuario = ?";
 
             PreparedStatement ps = conn.prepareStatement(sql);
             ps.setInt(1, idUsuarioEntrenador);
@@ -251,8 +267,7 @@ public class EntrenadorDAO {
             while (rs.next()) {
                 boolean termino = "SI".equals(rs.getString("completo"));
                 agenda.add(new EntrenadorDashboardDTO.AlumnoResumen(
-                        rs.getInt("id_cliente"), rs.getString("n"), "Hoy", rs.getString("nombre_rutina"), termino
-                ));
+                        rs.getInt("id_cliente"), rs.getString("n"), "Hoy", rs.getString("nombre_rutina"), termino));
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -262,7 +277,8 @@ public class EntrenadorDAO {
 
     /**
      * ACTUALIZAR O EDITAR RUTINA
-     * Modifica el nombre, el cliente y reemplaza todos los ejercicios antiguos por los nuevos.
+     * Modifica el nombre, el cliente y reemplaza todos los ejercicios antiguos por
+     * los nuevos.
      */
     public boolean actualizarRutina(int idRutina, NuevaRutinaDTO datos) {
         Connection conn = null;
@@ -320,8 +336,10 @@ public class EntrenadorDAO {
                 ps.executeBatch();
             }
 
-            // 4. Si editamos la rutina, reseteamos el historial de hoy para que el alumno pueda marcarla otra vez.
-            ps = conn.prepareStatement("DELETE FROM historial_entrenamientos WHERE id_cliente = ? AND fecha = CURRENT_DATE");
+            // 4. Si editamos la rutina, reseteamos el historial de hoy para que el alumno
+            // pueda marcarla otra vez.
+            ps = conn.prepareStatement(
+                    "DELETE FROM historial_entrenamientos WHERE id_cliente = ? AND fecha = CURRENT_DATE");
             ps.setInt(1, datos.getIdCliente());
             ps.executeUpdate();
 
@@ -330,13 +348,15 @@ public class EntrenadorDAO {
         } catch (Exception e) {
             e.printStackTrace();
             try {
-                if (conn != null) conn.rollback();
+                if (conn != null)
+                    conn.rollback();
             } catch (Exception ex) {
             }
             return false;
         } finally {
             try {
-                if (conn != null) conn.close();
+                if (conn != null)
+                    conn.close();
             } catch (Exception ex) {
             }
         }
@@ -363,13 +383,15 @@ public class EntrenadorDAO {
     public String listarEntrenadoresJSON() {
         StringBuilder json = new StringBuilder("[");
         try (Connection conn = ConexionDB.getConnection()) {
-            String sql = "SELECT e.id_entrenador, e.id_usuario, e.nombre, e.apellido, e.email, e.especialidad, u.usuario, u.activo " +
+            String sql = "SELECT e.id_entrenador, e.id_usuario, e.nombre, e.apellido, e.email, e.especialidad, u.usuario, u.activo "
+                    +
                     "FROM entrenadores e JOIN usuarios u ON e.id_usuario = u.id_usuario ORDER BY e.id_entrenador";
             PreparedStatement ps = conn.prepareStatement(sql);
             ResultSet rs = ps.executeQuery();
             boolean first = true;
             while (rs.next()) {
-                if (!first) json.append(",");
+                if (!first)
+                    json.append(",");
                 json.append("{\"idEntrenador\":").append(rs.getInt("id_entrenador"))
                         .append(",\"idUsuario\":").append(rs.getInt("id_usuario"))
                         .append(",\"nombre\":\"").append(JsonUtil.escape(rs.getString("nombre")))
@@ -389,7 +411,8 @@ public class EntrenadorDAO {
 
     public String obtenerEntrenadorJSON(int idEntrenador) {
         try (Connection conn = ConexionDB.getConnection()) {
-            String sql = "SELECT e.id_entrenador, e.id_usuario, e.nombre, e.apellido, e.email, e.especialidad, e.notas_desempeno, u.usuario, u.activo " +
+            String sql = "SELECT e.id_entrenador, e.id_usuario, e.nombre, e.apellido, e.email, e.especialidad, e.notas_desempeno, u.usuario, u.activo "
+                    +
                     "FROM entrenadores e JOIN usuarios u ON e.id_usuario = u.id_usuario WHERE e.id_entrenador = ?";
             PreparedStatement ps = conn.prepareStatement(sql);
             ps.setInt(1, idEntrenador);
@@ -424,7 +447,10 @@ public class EntrenadorDAO {
             ps.setString(4, dto.getApellido());
             ps.executeUpdate();
             ResultSet rs = ps.getGeneratedKeys();
-            if (!rs.next()) { conn.rollback(); return false; }
+            if (!rs.next()) {
+                conn.rollback();
+                return false;
+            }
             int idUsuario = rs.getInt(1);
             String sqlEnt = "INSERT INTO entrenadores (id_usuario, nombre, apellido, email, especialidad) VALUES (?, ?, ?, ?, ?)";
             ps = conn.prepareStatement(sqlEnt);
@@ -438,10 +464,18 @@ public class EntrenadorDAO {
             return true;
         } catch (Exception e) {
             e.printStackTrace();
-            try { if (conn != null) conn.rollback(); } catch (SQLException ex) {}
+            try {
+                if (conn != null)
+                    conn.rollback();
+            } catch (SQLException ex) {
+            }
             return false;
         } finally {
-            try { if (conn != null) conn.close(); } catch (SQLException ex) {}
+            try {
+                if (conn != null)
+                    conn.close();
+            } catch (SQLException ex) {
+            }
         }
     }
 
@@ -451,7 +485,8 @@ public class EntrenadorDAO {
             PreparedStatement ps = conn.prepareStatement("SELECT id_usuario FROM entrenadores WHERE id_entrenador = ?");
             ps.setInt(1, idEntrenador);
             ResultSet rs = ps.executeQuery();
-            if (!rs.next()) return false;
+            if (!rs.next())
+                return false;
             idUsuario = rs.getInt("id_usuario");
 
             String sqlEnt = "UPDATE entrenadores SET nombre=?, apellido=?, email=?, especialidad=? WHERE id_entrenador=?";
@@ -464,7 +499,8 @@ public class EntrenadorDAO {
             ps.executeUpdate();
 
             if (dto.getContrasena() != null && !dto.getContrasena().trim().isEmpty()) {
-                ps = conn.prepareStatement("UPDATE usuarios SET usuario=?, contrasena=?, nombre=?, apellido=? WHERE id_usuario=?");
+                ps = conn.prepareStatement(
+                        "UPDATE usuarios SET usuario=?, contrasena=?, nombre=?, apellido=? WHERE id_usuario=?");
                 ps.setString(1, dto.getUsuario());
                 ps.setString(2, SecurityUtil.encriptar(dto.getContrasena()));
                 ps.setString(3, dto.getNombre());
@@ -490,7 +526,8 @@ public class EntrenadorDAO {
             PreparedStatement ps = conn.prepareStatement("SELECT id_usuario FROM entrenadores WHERE id_entrenador = ?");
             ps.setInt(1, idEntrenador);
             ResultSet rs = ps.executeQuery();
-            if (!rs.next()) return false;
+            if (!rs.next())
+                return false;
             int idUsuario = rs.getInt("id_usuario");
             ps = conn.prepareStatement("UPDATE usuarios SET activo = FALSE WHERE id_usuario = ?");
             ps.setInt(1, idUsuario);

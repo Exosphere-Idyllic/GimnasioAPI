@@ -13,49 +13,119 @@ public class Usuario implements Serializable {
     private String email;
 
     // --- CAMPOS PARA EL FORMULARIO COMPLETO ---
-    private String nombre;          // <--- Nombre (Ej: Alan)
-    private String apellido;        // <--- NUEVO CAMPO (Ej: Olivo)
+    private String nombre; // <--- Nombre (Ej: Alan)
+    private String apellido; // <--- NUEVO CAMPO (Ej: Olivo)
     private String telefono;
     private String cedula;
     private String fechaNacimiento;
+    private Integer idEntrenador; // Puede ser null
 
-    public Usuario() {}
+    public Usuario() {
+    }
 
     // Getters y Setters
-    public int getIdUsuario() { return idUsuario; }
-    public void setIdUsuario(int idUsuario) { this.idUsuario = idUsuario; }
+    public int getIdUsuario() {
+        return idUsuario;
+    }
 
-    public int getIdRol() { return idRol; }
-    public void setIdRol(int idRol) { this.idRol = idRol; }
+    public void setIdUsuario(int idUsuario) {
+        this.idUsuario = idUsuario;
+    }
 
-    public String getUsuario() { return usuario; }
-    public void setUsuario(String usuario) { this.usuario = usuario; }
+    public int getIdRol() {
+        return idRol;
+    }
 
-    public String getContrasena() { return contrasena; }
-    public void setContrasena(String contrasena) { this.contrasena = contrasena; }
+    public void setIdRol(int idRol) {
+        this.idRol = idRol;
+    }
 
-    public Timestamp getFechaCreacion() { return fechaCreacion; }
-    public void setFechaCreacion(Timestamp fechaCreacion) { this.fechaCreacion = fechaCreacion; }
+    public String getUsuario() {
+        return usuario;
+    }
 
-    public boolean isActivo() { return activo; }
-    public void setActivo(boolean activo) { this.activo = activo; }
+    public void setUsuario(String usuario) {
+        this.usuario = usuario;
+    }
 
-    public String getEmail() { return email; }
-    public void setEmail(String email) { this.email = email; }
+    public String getContrasena() {
+        return contrasena;
+    }
+
+    public void setContrasena(String contrasena) {
+        this.contrasena = contrasena;
+    }
+
+    public Timestamp getFechaCreacion() {
+        return fechaCreacion;
+    }
+
+    public void setFechaCreacion(Timestamp fechaCreacion) {
+        this.fechaCreacion = fechaCreacion;
+    }
+
+    public boolean isActivo() {
+        return activo;
+    }
+
+    public void setActivo(boolean activo) {
+        this.activo = activo;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
 
     // --- NUEVOS GETTERS Y SETTERS ---
-    public String getNombre() { return nombre; }
-    public void setNombre(String nombre) { this.nombre = nombre; }
+    public String getNombre() {
+        return nombre;
+    }
 
-    public String getApellido() { return apellido; } // <--- Getter Apellido
-    public void setApellido(String apellido) { this.apellido = apellido; } // <--- Setter Apellido
+    public void setNombre(String nombre) {
+        this.nombre = nombre;
+    }
 
-    public String getTelefono() { return telefono; }
-    public void setTelefono(String telefono) { this.telefono = telefono; }
+    public String getApellido() {
+        return apellido;
+    } // <--- Getter Apellido
 
-    public String getCedula() { return cedula; }
-    public void setCedula(String cedula) { this.cedula = cedula; }
+    public void setApellido(String apellido) {
+        this.apellido = apellido;
+    } // <--- Setter Apellido
 
-    public String getFechaNacimiento() { return fechaNacimiento; }
-    public void setFechaNacimiento(String fechaNacimiento) { this.fechaNacimiento = fechaNacimiento; }
+    public String getTelefono() {
+        return telefono;
+    }
+
+    public void setTelefono(String telefono) {
+        this.telefono = telefono;
+    }
+
+    public String getCedula() {
+        return cedula;
+    }
+
+    public void setCedula(String cedula) {
+        this.cedula = cedula;
+    }
+
+    public String getFechaNacimiento() {
+        return fechaNacimiento;
+    }
+
+    public void setFechaNacimiento(String fechaNacimiento) {
+        this.fechaNacimiento = fechaNacimiento;
+    }
+
+    public Integer getIdEntrenador() {
+        return idEntrenador;
+    }
+
+    public void setIdEntrenador(Integer idEntrenador) {
+        this.idEntrenador = idEntrenador;
+    }
 }

@@ -346,7 +346,8 @@ public class UsuarioDAO {
                 "COALESCE(c.email, e.email, '') as email, " +
                 "COALESCE(c.telefono, '') as telefono, " +
                 "COALESCE(c.cedula, '') as cedula, " +
-                "c.fecha_nacimiento " +
+                "c.fecha_nacimiento, " +
+                "c.id_entrenador " +
                 "FROM usuarios u INNER JOIN roles r ON u.id_rol = r.id_rol " +
                 "LEFT JOIN clientes c ON u.id_usuario = c.id_usuario " +
                 "LEFT JOIN membresias m ON c.id_membresia = m.id_membresia " +
@@ -379,6 +380,9 @@ public class UsuarioDAO {
                         .append(rs.getDate("fecha_nacimiento") != null
                                 ? "\"" + rs.getDate("fecha_nacimiento").toString() + "\""
                                 : "null")
+                        .append(",")
+                        .append("\"idEntrenador\":")
+                        .append(rs.getObject("id_entrenador") != null ? rs.getInt("id_entrenador") : "null")
                         .append(",")
                         .append("\"idCliente\":").append(rs.getInt("id_cliente")).append(",")
                         .append("\"membresia\":\"")
@@ -414,7 +418,7 @@ public class UsuarioDAO {
     // 3. AGREGAR NUEVO PERSONAL / USUARIO
     public boolean agregarPersonalAdmin(Usuario u) {
         String insertUsuario = "INSERT INTO usuarios (id_rol, usuario, contrasena, activo, nombre, apellido) VALUES (?, ?, ?, true, ?, ?) RETURNING id_usuario";
-        String insertCliente = "INSERT INTO clientes (id_usuario, nombre, apellido, email, telefono, cedula, fecha_nacimiento) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        String insertCliente = "INSERT INTO clientes (id_usuario, nombre, apellido, email, telefono, cedula, fecha_nacimiento, id_entrenador) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
         String insertEntrenador = "INSERT INTO entrenadores (id_usuario, nombre, apellido, email) VALUES (?, ?, ?, ?)";
 
         Connection conn = null;
@@ -452,6 +456,11 @@ public class UsuarioDAO {
                         psC.setDate(7, java.sql.Date.valueOf(u.getFechaNacimiento()));
                     } else {
                         psC.setNull(7, java.sql.Types.DATE);
+                    }
+                    if (u.getIdEntrenador() != null && u.getIdEntrenador() > 0) {
+                        psC.setInt(8, u.getIdEntrenador());
+                    } else {
+                        psC.setNull(8, java.sql.Types.INTEGER);
                     }
                     psC.executeUpdate();
                 }
@@ -530,7 +539,7 @@ public class UsuarioDAO {
                 }
 
                 if (existeCliente) {
-                    String sqlC = "UPDATE clientes SET nombre=?, apellido=?, email=?, telefono=?, cedula=?, fecha_nacimiento=? WHERE id_usuario=?";
+                    String sqlC = "UPDATE clientes SET nombre=?, apellido=?, email=?, telefono=?, cedula=?, fecha_nacimiento=?, id_entrenador=? WHERE id_usuario=?";
                     try (PreparedStatement psC = conn.prepareStatement(sqlC)) {
                         psC.setString(1, u.getNombre());
                         psC.setString(2, u.getApellido());
@@ -543,11 +552,16 @@ public class UsuarioDAO {
                         } else {
                             psC.setNull(6, java.sql.Types.DATE);
                         }
-                        psC.setInt(7, u.getIdUsuario());
+                        if (u.getIdEntrenador() != null && u.getIdEntrenador() > 0) {
+                            psC.setInt(7, u.getIdEntrenador());
+                        } else {
+                            psC.setNull(7, java.sql.Types.INTEGER);
+                        }
+                        psC.setInt(8, u.getIdUsuario());
                         psC.executeUpdate();
                     }
                 } else {
-                    String sqlC_Ins = "INSERT INTO clientes (id_usuario, nombre, apellido, email, telefono, cedula, fecha_nacimiento) VALUES (?, ?, ?, ?, ?, ?, ?)";
+                    String sqlC_Ins = "INSERT INTO clientes (id_usuario, nombre, apellido, email, telefono, cedula, fecha_nacimiento, id_entrenador) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
                     try (PreparedStatement psC = conn.prepareStatement(sqlC_Ins)) {
                         psC.setInt(1, u.getIdUsuario());
                         psC.setString(2, u.getNombre() != null ? u.getNombre() : "Sin Nombre");
@@ -560,6 +574,11 @@ public class UsuarioDAO {
                             psC.setDate(7, java.sql.Date.valueOf(u.getFechaNacimiento()));
                         } else {
                             psC.setNull(7, java.sql.Types.DATE);
+                        }
+                        if (u.getIdEntrenador() != null && u.getIdEntrenador() > 0) {
+                            psC.setInt(8, u.getIdEntrenador());
+                        } else {
+                            psC.setNull(8, java.sql.Types.INTEGER);
                         }
                         psC.executeUpdate();
                     }
