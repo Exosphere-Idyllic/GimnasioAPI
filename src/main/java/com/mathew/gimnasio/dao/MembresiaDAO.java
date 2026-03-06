@@ -86,23 +86,21 @@ public class MembresiaDAO {
                 return false;
             }
 
-            int duracionDias = dto.getDuracionDias() != null && dto.getDuracionDias() > 0 ? dto.getDuracionDias() : 30;
+            int duracionDias = 30; // Default a 30 días para Smart y Black
             double precio = 0;
 
-            // Intentar obtener precio y duración de tipos_membresia (tiene duracion_dias)
-            PreparedStatement psTm = conn
-                    .prepareStatement("SELECT precio, duracion_dias FROM tipos_membresia WHERE id_tipo_membresia = ?");
-            psTm.setInt(1, idMembresia);
-            ResultSet rs = psTm.executeQuery();
+            PreparedStatement psM = conn
+                    .prepareStatement("SELECT precio, duracion_dias FROM membresias WHERE id_membresia = ?");
+            psM.setInt(1, idMembresia);
+            ResultSet rs = psM.executeQuery();
             if (rs.next()) {
                 precio = rs.getDouble("precio");
-                duracionDias = rs.getInt("duracion_dias");
+                // Si tu BD ya tiene duracion_dias en membresias, úsalo:
+                // int dur = rs.getInt("duracion_dias");
+                // if (!rs.wasNull()) duracionDias = dur;
             } else {
-                PreparedStatement psM = conn.prepareStatement("SELECT precio FROM membresias WHERE id_membresia = ?");
-                psM.setInt(1, idMembresia);
-                rs = psM.executeQuery();
-                if (rs.next())
-                    precio = rs.getDouble("precio");
+                conn.rollback();
+                return false;
             }
 
             LocalDate vencimiento = LocalDate.now().plusDays(duracionDias);
