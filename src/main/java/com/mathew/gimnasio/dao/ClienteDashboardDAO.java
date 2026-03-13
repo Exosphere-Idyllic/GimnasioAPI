@@ -27,12 +27,15 @@ public class ClienteDashboardDAO {
             /* 1.PERFIL Y ESTADO DE MEMBRESÍA
              * Aquí traemos el nombre, email y teléfono. También revisamos si su plan (Smart o Black)
              * sigue vigente comparando la fecha de vencimiento con el día de hoy.
+             * Además traemos el nombre del entrenador asignado.
              */
             String sql = "SELECT c.id_cliente, c.nombre || ' ' || c.apellido as n, c.email, c.telefono, " +
                     "m.nombre as plan, m.precio, c.fecha_vencimiento, " +
-                    "CASE WHEN c.fecha_vencimiento >= CURRENT_DATE THEN 'Activo' ELSE 'Vencido' END as estado " +
+                    "CASE WHEN c.fecha_vencimiento >= CURRENT_DATE THEN 'Activo' ELSE 'Vencido' END as estado, " +
+                    "e.nombre || ' ' || e.apellido as entrenador_nom " +
                     "FROM clientes c " +
                     "LEFT JOIN membresias m ON c.id_membresia = m.id_membresia " +
+                    "LEFT JOIN entrenadores e ON c.id_entrenador = e.id_entrenador " +
                     "WHERE c.id_usuario = ?";
 
             PreparedStatement ps = conn.prepareStatement(sql);
@@ -49,6 +52,7 @@ public class ClienteDashboardDAO {
                 dto.precioPlan = rs.getDouble("precio");
                 dto.fechaVencimiento = rs.getString("fecha_vencimiento");
                 dto.estadoMembresia = rs.getString("estado");
+                dto.entrenador = rs.getString("entrenador_nom");
             } else return null; // Si no hay cliente, no seguimos buscando
 
             /* 2. HISTORIAL DE ASISTENCIAS
@@ -81,7 +85,7 @@ public class ClienteDashboardDAO {
 
             if(rs.next()){
                 dto.nombreRutina = rs.getString("nombre_rutina");
-                dto.entrenador = rs.getString("ent");
+                // dto.entrenador is already populated from the assigned trainer querying the clients table
                 int idR = rs.getInt("id_rutina");
 
                 // Buscamos los ejercicios específicos de esta rutina (Ej: Press Banca 4x12)
