@@ -80,4 +80,37 @@ public class EjercicioDAO {
             return false;
         }
     }
+
+    public boolean actualizarEjercicio(int id, String nombre, String grupoMuscular) {
+        if (nombre == null || nombre.trim().isEmpty())
+            return false;
+
+        try (Connection conn = ConexionDB.getConnection()) {
+            String sql = "UPDATE ejercicios SET nombre_ejercicio = ?, grupo_muscular = ? WHERE id_ejercicio = ?";
+            PreparedStatement ps = conn.prepareStatement(sql);
+            ps.setString(1, nombre.trim());
+            ps.setString(2, grupoMuscular != null ? grupoMuscular.trim() : "General");
+            ps.setInt(3, id);
+            return ps.executeUpdate() > 0;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    public boolean eliminarEjercicio(int id) {
+        try (Connection conn = ConexionDB.getConnection()) {
+            String sql = "DELETE FROM ejercicios WHERE id_ejercicio = ?";
+            PreparedStatement ps = conn.prepareStatement(sql);
+            ps.setInt(1, id);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            // Probably a foreign key constraint violation (used in a routine)
+            System.err.println("Cannot delete exercise, it might be in use: " + e.getMessage());
+            return false;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
 }
