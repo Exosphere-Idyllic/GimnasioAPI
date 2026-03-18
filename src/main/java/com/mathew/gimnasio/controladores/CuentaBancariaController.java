@@ -57,6 +57,28 @@ public class CuentaBancariaController {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     public Response crear(CuentaBancaria c) {
+        // Validaciones en backend
+        if (c == null) {
+            return Response.status(400)
+                           .entity("{\"mensaje\":\"El cuerpo de la solicitud no puede estar vacío\"}").build();
+        }
+        if (c.getNombreBanco() == null || c.getNombreBanco().trim().isEmpty()) {
+            return Response.status(400)
+                           .entity("{\"mensaje\":\"El nombre del banco es obligatorio\"}").build();
+        }
+        if (c.getNumeroCuenta() == null || c.getNumeroCuenta().trim().isEmpty()) {
+            return Response.status(400)
+                           .entity("{\"mensaje\":\"El número de cuenta es obligatorio\"}").build();
+        }
+        if (c.getTipoCuenta() == null || c.getTipoCuenta().trim().isEmpty()) {
+            return Response.status(400)
+                           .entity("{\"mensaje\":\"El tipo de cuenta es obligatorio\"}").build();
+        }
+        if (c.getTitular() == null || c.getTitular().trim().isEmpty()) {
+            return Response.status(400)
+                           .entity("{\"mensaje\":\"El titular de la cuenta es obligatorio\"}").build();
+        }
+
         if (dao.crearCuenta(c)) {
             return Response.ok("{\"mensaje\":\"Cuenta bancaria registrada correctamente\"}").build();
         } else {
