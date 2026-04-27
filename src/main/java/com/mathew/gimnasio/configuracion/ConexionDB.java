@@ -1,49 +1,61 @@
 package com.mathew.gimnasio.configuracion;
 
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
+
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.SQLException;
 
 /**
- * Conexión a la base de datos.
- * Credenciales desde variables de entorno: DB_URL, DB_USER, DB_PASS.
- * No hardcodear en código; usar .env en local (no commitear) o config en el
- * servidor.
- *
- * SSL: Si la URL no contiene parámetro "ssl", se añade sslmode=require
- * automáticamente.
- * Esto es obligatorio en proveedores cloud (Render, Neon, Supabase).
- * Para desarrollo local sin SSL, añade "?sslmode=disable" explícitamente en
- * DB_URL.
+ * Conexión a la base de datos usando HikariCP para pool de conexiones.
+ * Configurado por defecto para usar Neon con las credenciales proporcionadas.
  */
 public class ConexionDB {
 
-    private static final String URL = buildUrl(ConfiguracionEnv.get("DB_URL", ""));
-    private static final String USER = ConfiguracionEnv.get("DB_USER", "");
-    private static final String PASS = ConfiguracionEnv.get("DB_PASS", "");
+    private static HikariDataSource dataSource;
 
-    /**
-     * Si la URL ya contiene algún parámetro relacionado con SSL no la toca.
-     * De lo contrario añade sslmode=require para que funcione en producción.
-     */
+    static {
+        try {
+            HikariConfig config = new HikariConfig();
+            
+            // Usamos las variables de entorno, o los valores de Neon por defecto
+            String envUrl = ConfiguracionEnv.get("DB_URL", "jdbc:postgresql://ep-polished-mode-anv9fx0m.c-6.us-east-1.aws.neon.tech/neondb?sslmode=require");
+            String envUser = ConfiguracionEnv.get("DB_USER", "neondb_owner");
+            String envPass = ConfiguracionEnv.get("DB_PASS", "npg_fKQYtNk2dL3V");
+            
+            config.setJdbcUrl(buildUrl(envUrl));
+            config.setUsername(envUser);
+            config.setPassword(envPass);
+            config.setDriverClassName("org.postgresql.Driver");
+            
+            // Configuración recomendada para pool en producción y cloud (Neon)
+            config.setMaximumPoolSize(10);
+            config.setMinimumIdle(2);
+            config.setIdleTimeout(30000); // 30 segundos
+            config.setConnectionTimeout(20000); // 20 segundos
+            config.setMaxLifetime(1800000); // 30 minutos
+            
+            dataSource = new HikariDataSource(config);
+        } catch (Exception e) {
+            System.err.println("Error al inicializar el pool de conexiones: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
     private static String buildUrl(String url) {
-        if (url == null || url.isBlank())
-            return url;
-        if (url.contains("ssl"))
-            return url; // ya tiene sslmode=... o ssl=true
+        if (url == null || url.isBlank()) return url;
+        // Si viene como postgresql:// lo adaptamos a jdbc:postgresql://
+        if (url.startsWith("postgresql://")) {
+            url = url.replaceFirst("postgresql://", "jdbc:postgresql://");
+        }
+        if (url.contains("ssl")) return url;
         return url + (url.contains("?") ? "&" : "?") + "sslmode=require";
     }
 
     public static Connection getConnection() throws SQLException {
-        if (URL == null || URL.isBlank() || USER.isBlank()) {
-            throw new SQLException("Variables de entorno no configuradas (DB_URL, DB_USER).");
+        if (dataSource == null) {
+            throw new SQLException("El pool de conexiones no está inicializado.");
         }
-        try {
-            Class.forName("org.postgresql.Driver");
-            return DriverManager.getConnection(URL, USER, PASS);
-        } catch (ClassNotFoundException | SQLException e) {
-            System.err.println("Error de conexión: " + e.getMessage());
-            throw new SQLException("Fallo al conectar a la base de datos", e);
-        }
+        return dataSource.getConnection();
     }
 }

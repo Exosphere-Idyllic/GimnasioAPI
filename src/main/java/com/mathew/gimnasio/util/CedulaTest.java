@@ -1,3 +1,5 @@
+package com.mathew.gimnasio.util;
+
 public class CedulaTest {
     public static void main(String[] args) {
         String cedula = "0150212983";
